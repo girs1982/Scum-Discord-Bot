@@ -1,4 +1,6 @@
 It Scum Bot for Discord 
+
+
 Steps to run:
 
 1:config ini file 
