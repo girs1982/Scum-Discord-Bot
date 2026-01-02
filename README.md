@@ -5,8 +5,9 @@ Steps to run:
 
 1:config ini file 
 
+2: install libs
 
-2: run python3 scumbot.py
+3: run python3 scumbot.py
 
 
 
