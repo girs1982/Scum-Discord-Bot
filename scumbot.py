@@ -1,14 +1,25 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'vendor'))
 import discord
 import datetime
 import scumftp
 import killparse
 import chatparse
 import loginparse
+import subprocess
 from discord.ext import commands, tasks
 import configparser
 import datetime as dt
 from datetime import timedelta
-# Gansta-Girs OpenSource
+# NEW: Telegram
+from aiogram import Bot as TgBot
+from aiogram.types import InputMediaPhoto
+
+# Add admin channel, mine channel
+
+
+
 intents = discord.Intents.all()
 
 client = commands.Bot(command_prefix='!',intents=intents)
@@ -25,12 +36,23 @@ TOKEN = config['DISCORD']['token']
 DELAY = config['DISCORD']['delay']
 DELAY = int(DELAY)
 
+# NEW: Telegram settings
+TG_BOT_TOKEN = config['TELEGRAM']['bot_token']
+TG_CHAT_ID = int(config['TELEGRAM']['chat_id'])
+tg_bot = TgBot(token=TG_BOT_TOKEN)
+
+# Попытка выполнения shell-скрипта, если есть ошибка — она просто выводится в консоль
+#try:
+#    subprocess.run(['/home/bitcoin/Downloads/ScumDiscord/add_routes.sh'], check=True)
+#except subprocess.CalledProcessError as e:
+#    print(f"Ошибка при выполнении скрипта add_routes.sh: {e}. Код ошибки: {e.returncode}")
+
 
 @client.event
 async def on_ready():
     global last_chat_dt, last_kill_dt, last_login_dt
-    last_chat_dt =  dt.datetime.now() - timedelta(hours=3)
-    last_kill_dt =  dt.datetime.now() - timedelta(hours=3)
+    last_chat_dt =  dt.datetime.now()  - timedelta(hours=3)
+    last_kill_dt =  dt.datetime.now()  - timedelta(hours=3)
     last_login_dt =  dt.datetime.now() - timedelta(hours=3)
     check_files.start()
 
@@ -41,6 +63,9 @@ async def post_chat_events(chat_events):
     for chat_event in chat_events:
         out = "```fix\n" + str(chat_event['date'].strftime("%Y-%m-%d %H:%M")) + " from " + chat_event['user'] + "```\n" + chat_event['message']
         await client.get_channel(channel).send(out)
+        # NEW: отправка в Telegram
+        tg_text = f"[{chat_event['date'].strftime('%H:%M')}] <b>{chat_event['user']}</b>: {discord.utils.escape_markdown(chat_event['message'])}"
+        await tg_bot.send_message(chat_id=TG_CHAT_ID, text=tg_text, parse_mode='HTML')
 
 
 async def post_kill_events(kill_events):
@@ -59,14 +84,27 @@ async def post_kill_events(kill_events):
         image_url = 'http://www.tvanderbruggen.com/scum/kill_' + kill_event['victimLoc'] + ".png"
         message.set_image(url=image_url)
         await client.get_channel(channel).send(embed=message)
-
+        # NEW: отправка в Telegram (фото + подпись)
+        caption = (
+            f"🔫 <b>Убийство</b>\n"
+            f"Убийца: <code>{kill_event['killer']}</code> ({kill_event['killerLoc']})\n"
+            f"Жертва: <code>{kill_event['victim']}</code> ({kill_event['victimLoc']})\n"
+            f"Оружие: {kill_event['weapon']}"
+        )
+        await tg_bot.send_photo(
+            chat_id=TG_CHAT_ID,
+            photo=image_url,
+            caption=caption,
+            parse_mode='HTML'
+        )
 
 async def post_login_events(login_events):
     global login_channel
     channel = login_channel
     for login in login_events:
         await client.get_channel(channel).send(login['user'] + " logged in")
-
+        # NEW: отправка в Telegram
+        await tg_bot.send_message(chat_id=TG_CHAT_ID, text=f"✅ <b>{login['user']}</b> зашёл на сервер 🏴‍☠️", parse_mode='HTML')
 
 @tasks.loop(seconds=DELAY)
 async def check_files():
@@ -100,3 +138,4 @@ async def check_files():
 
 
 client.run(TOKEN)
+
